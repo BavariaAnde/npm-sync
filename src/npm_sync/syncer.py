@@ -67,6 +67,62 @@ class Syncer:
             }
         }
 
+    def _normalize_bool(self, value, default: bool = False) -> bool:
+        if value is None:
+            return default
+        return bool(value)
+
+    def _normalize_int(self, value, default: int = 0) -> int:
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _normalize_scheme(self, value) -> str | None:
+        if value is None:
+            return None
+        return str(value).lower()
+
+    def _normalize_payload(self, payload: dict) -> dict:
+        return {
+            "forward_host": payload.get("forward_host"),
+            "forward_port": self._normalize_int(payload.get("forward_port"), default=None),
+            "scheme": self._normalize_scheme(payload.get("forward_scheme") or payload.get("scheme")),
+            "access_list_id": self._normalize_int(payload.get("access_list_id")),
+            "certificate_id": self._normalize_int(payload.get("certificate_id")),
+            "force_ssl": self._normalize_bool(payload.get("ssl_forced") if "ssl_forced" in payload else payload.get("force_ssl")),
+            "http2_support": self._normalize_bool(payload.get("http2_support")),
+            "hsts_enabled": self._normalize_bool(payload.get("hsts_enabled")),
+            "hsts_subdomains": self._normalize_bool(payload.get("hsts_subdomains")),
+            "websocket_support": self._normalize_bool(
+                payload.get("allow_websocket_upgrade") if "allow_websocket_upgrade" in payload else payload.get("websocket_support")
+            ),
+            "block_common_exploits": self._normalize_bool(
+                payload.get("block_exploits") if "block_exploits" in payload else payload.get("block_common_exploits")
+            ),
+            "caching_enabled": self._normalize_bool(payload.get("caching_enabled")),
+            "advanced_config": payload.get("advanced_config") or "",
+            "enabled": self._normalize_bool(payload.get("enabled"), default=True),
+        }
+
+    def _diff_payloads(self, current: dict, desired: dict) -> dict:
+        current_norm = self._normalize_payload(current)
+        desired_norm = self._normalize_payload(desired)
+        changes: dict = {}
+        for key, current_value in current_norm.items():
+            desired_value = desired_norm.get(key)
+            if current_value != desired_value:
+                changes[key] = {"from": current_value, "to": desired_value}
+        return changes
+
+    def _create_details(self, host: dict, payload: dict) -> dict:
+        details = self._normalize_payload(payload)
+        if "domain" in host:
+            details["domain"] = host["domain"]
+        return {key: value for key, value in details.items() if value is not None}
+
     def _build_update_payload(self, host: dict, existing: dict) -> dict:
         payload = {
             "domain_names": existing.get("domain_names", []),
@@ -153,17 +209,19 @@ class Syncer:
                 host_id = existing_by_domain[key]["id"]
                 existing = existing_by_domain[key]
                 payload = self._build_update_payload(host, existing)
+                details = self._diff_payloads(existing, payload)
                 if self.settings.dry_run:
-                    results.append(SyncResult(domain=host["domain"], action="would-update"))
+                    results.append(SyncResult(domain=host["domain"], action="would-update", details=details))
                 else:
                     self.client.update_proxy_host(host_id, payload)
-                    results.append(SyncResult(domain=host["domain"], action="updated"))
+                    results.append(SyncResult(domain=host["domain"], action="updated", details=details))
             else:
                 payload = self._build_payload(host)
+                details = self._create_details(host, payload)
                 if self.settings.dry_run:
-                    results.append(SyncResult(domain=host["domain"], action="would-create"))
+                    results.append(SyncResult(domain=host["domain"], action="would-create", details=details))
                 else:
                     self.client.create_proxy_host(payload)
-                    results.append(SyncResult(domain=host["domain"], action="created"))
+                    results.append(SyncResult(domain=host["domain"], action="created", details=details))
 
         return results
