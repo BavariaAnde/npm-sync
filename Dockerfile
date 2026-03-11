@@ -1,15 +1,23 @@
 FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN adduser --disabled-password --gecos "" appuser
 
-COPY pyproject.toml .
+COPY pyproject.toml README.md ./
 COPY src ./src
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
+
+LABEL org.opencontainers.image.source="https://github.com/BavariaAnde/npm-sync"
+LABEL org.opencontainers.image.description="Declarative Nginx Proxy Manager synchronization tool using a YAML hosts inventory."
+LABEL org.opencontainers.image.licenses="MIT"
+
+USER appuser
 
 ENTRYPOINT ["python", "-m", "npm_sync"]
 CMD ["--config", "/config/hosts.yml"]

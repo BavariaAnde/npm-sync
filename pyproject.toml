@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "Andreas Göttl" }
+  { name = "Andreas Goettl" }
 ]
 keywords = ["nginx-proxy-manager", "reverse-proxy", "homelab", "selfhosted", "docker"]
 classifiers = [
@@ -30,6 +30,11 @@ dependencies = [
   "PyYAML==6.0.2",
   "python-dotenv==1.0.1"
 ]
+
+[project.urls]
+Homepage = "https://github.com/BavariaAnde/npm-sync"
+Repository = "https://github.com/BavariaAnde/npm-sync"
+Issues = "https://github.com/BavariaAnde/npm-sync/issues"
 
 [project.scripts]
 npm-sync = "npm_sync.cli:main"

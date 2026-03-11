@@ -1,18 +1,22 @@
 # Code of Conduct
 
-Be respectful, constructive, and patient.
+This project is dedicated to providing a welcoming, inclusive, and harassment-free experience for everyone.
 
 ## Our standards
 
-- Be welcoming
-- Be respectful of differing viewpoints
-- Accept constructive feedback
+- Be respectful and constructive
+- Assume good intent
+- Give and accept helpful feedback
 - Focus on what is best for the community
 
 ## Unacceptable behavior
 
-- Harassment or personal attacks
+- Harassment, discrimination, or personal attacks
 - Trolling or insulting comments
 - Publishing private information without permission
+- Sustained disruption of discussions
 
-Project maintainers may remove content or contributions that violate these standards.
+## Enforcement
+
+Project maintainers are responsible for clarifying and enforcing these standards.
+Report issues through GitHub Issues for this repository.

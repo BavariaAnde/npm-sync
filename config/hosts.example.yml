@@ -1,3 +1,6 @@
+# Example inventory for npm-sync
+# Copy to config/hosts.yml and adjust for your environment.
+
 defaults:
   scheme: http
   access_list: lan
@@ -12,7 +15,7 @@ defaults:
 
 hosts:
   - domain: immich.example.com
-    forward_host: immich-server
+    forward_host: immich
     forward_port: 2283
     description: Immich on same Docker network
 
@@ -25,3 +28,12 @@ hosts:
     forward_host: dev-service
     forward_port: 3000
     description: Nested subdomain example
+    advanced_config: |
+      # add custom Nginx directives here
+      client_max_body_size 100m;
+
+  - domain: disabled.example.com
+    forward_host: 192.168.1.50
+    forward_port: 9000
+    description: Example disabled entry
+    enabled: false

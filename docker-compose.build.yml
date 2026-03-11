@@ -1,6 +1,9 @@
 services:
   npm-sync:
-    image: ghcr.io/BavariaAnde/npm-sync:latest
+    image: npm-sync:local
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: npm-sync
     env_file:
       - .env

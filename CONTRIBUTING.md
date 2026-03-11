@@ -1,21 +1,20 @@
 # Contributing
 
-Thanks for your interest in contributing!
+Thanks for your interest in contributing to npm-sync.
 
-## Development Setup
+## Development setup
 
-1. Clone the repository.
-2. Create a virtual environment.
-3. Install dependencies:
+1. Create a virtual environment.
+2. Install the project in editable mode.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install --upgrade pip
 pip install -e .
-````
+```
 
-### Running Locally
+## Running locally
 
 ```bash
 cp .env.example .env
@@ -23,8 +22,14 @@ cp config/hosts.example.yml config/hosts.yml
 python -m npm_sync --config config/hosts.yml
 ```
 
-## Pull Requests
+## Running with Docker
 
-* Keep changes focused.
-* Add or update documentation.
-* Avoid breaking existing YAML structures without documenting migrations.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up --build --detach
+```
+
+## Pull requests
+
+- Keep changes focused and well-scoped.
+- Update documentation for behavior changes.
+- Avoid breaking existing YAML structures without documenting migrations.
