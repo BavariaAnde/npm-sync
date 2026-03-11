@@ -7,6 +7,7 @@
 npm-sync keeps Nginx Proxy Manager in sync with a declarative `hosts.yml` file. It creates, updates, and (optionally) deletes managed proxy hosts so your NPM configuration stays reproducible and version-controlled.
 
 Why use it:
+
 - Avoid manual clicks in the NPM UI
 - Keep proxy hosts consistent across environments
 - Track changes in Git
@@ -34,6 +35,7 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up --build --de
 ## Configuration (.env)
 
 NPM API:
+
 - `NPM_BASE_URL` URL to your NPM instance
 - `NPM_TOKEN` token auth (preferred)
 - `NPM_IDENTITY` identity email (used when token is empty)
@@ -41,6 +43,7 @@ NPM API:
 - `NPM_VERIFY_SSL` verify TLS (`true` or `false`)
 
 Defaults used only when creating new hosts:
+
 - `DEFAULT_SCHEME` (`http` or `https`)
 - `DEFAULT_ACCESS_LIST` access list name
 - `DEFAULT_CERT_STRATEGY` (`wildcard`)
@@ -53,10 +56,12 @@ Defaults used only when creating new hosts:
 - `DEFAULT_FORCE_SSL` (`true` or `false`)
 
 Runtime:
+
 - `DRY_RUN` (`true` or `false`)
 - `LOG_LEVEL` (`INFO`, `DEBUG`, and so on)
 
 Deletion safety:
+
 - `DELETE_ENABLED` (`true` or `false`)
 - `ALLOW_EMPTY_SOURCE` (`true` or `false`)
 - `MAX_DELETE_COUNT` (integer, 0 disables)
@@ -75,6 +80,7 @@ hosts:
 ```
 
 Optional fields:
+
 - `scheme`, `access_list`, `certificate_strategy`, `certificate_name`
 - `block_common_exploits`, `websocket_support`, `caching_enabled`
 - `http2_support`, `hsts_enabled`, `force_ssl`
