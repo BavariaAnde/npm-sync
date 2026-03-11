@@ -64,7 +64,9 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up --build --de
 
 If you fork this repo and publish your own image, update the image reference to:
 
-- `ghcr.io/BavariaAnde/npm-sync:latest`
+- `ghcr.io/MY_GITHUB_USERNAME/npm-sync:latest`
+
+Also update `.github/workflows/docker-image.yml` to point to your namespace.
 
 ## Configuration
 
@@ -198,10 +200,16 @@ Set `DRY_RUN=false` and restart when ready.
 
 This project is designed to publish via GitHub Container Registry (GHCR).
 
-1. Update `.github/workflows/docker-image.yml` to replace `BavariaAnde` with your GitHub username.
-2. Push to `main` or create a tag like `v0.1.0` to trigger the workflow.
-3. After the first push, open the package settings in GitHub and set visibility to Public.
-4. The image tag becomes `ghcr.io/BavariaAnde/npm-sync:latest`.
+1. Push to `main` or create a tag like `v0.1.0` to trigger the workflow.
+2. After the first push, open the package settings in GitHub and set visibility to Public.
+3. The image tag is `ghcr.io/BavariaAnde/npm-sync:latest`.
+
+## Release process
+
+1. Update `CHANGELOG.md` and the version in `pyproject.toml`.
+2. Commit the changes.
+3. Create a tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
+4. Push: `git push origin main` and `git push origin vX.Y.Z`.
 
 ## GitHub Actions
 

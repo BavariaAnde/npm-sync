@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added minimal CI workflow
+- Documented release process and forked image guidance
+
 ## 0.1.0 - 2026-03-11
 
 - Initial public release
