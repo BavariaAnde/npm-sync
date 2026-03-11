@@ -46,6 +46,11 @@ class NPMClient:
         response.raise_for_status()
         return response.json()
 
+    def delete_proxy_host(self, host_id):
+        response = self.session.delete(f"{self.base_url}/api/nginx/proxy-hosts/{host_id}", timeout=self.timeout)
+        response.raise_for_status()
+        return True
+
     def get_access_lists(self):
         response = self.session.get(f"{self.base_url}/api/nginx/access-lists", timeout=self.timeout)
         response.raise_for_status()

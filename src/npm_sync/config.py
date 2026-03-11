@@ -9,6 +9,24 @@ def env_bool(name: str, default: bool = False) -> bool:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+def env_int(name: str, default: int = 0) -> int:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+def env_float(name: str, default: float = 0.0) -> float:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
 class Settings:
     npm_base_url = os.getenv("NPM_BASE_URL", "").rstrip("/")
     npm_identity = os.getenv("NPM_IDENTITY", "")
@@ -30,3 +48,9 @@ class Settings:
 
     dry_run = env_bool("DRY_RUN", False)
     log_level = os.getenv("LOG_LEVEL", "INFO")
+
+    delete_enabled = env_bool("DELETE_ENABLED", False)
+    allow_empty_source = env_bool("ALLOW_EMPTY_SOURCE", False)
+    max_delete_count = env_int("MAX_DELETE_COUNT", 0)
+    max_delete_percent = env_float("MAX_DELETE_PERCENT", 0.0)
+    force_delete = env_bool("FORCE_DELETE", False)

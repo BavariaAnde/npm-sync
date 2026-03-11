@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import yaml
 from npm_sync.models import SyncResult
 
@@ -85,8 +86,17 @@ class Syncer:
             return None
         return str(value).lower()
 
+    def _normalize_domains(self, domain_names) -> list[str]:
+        if not domain_names:
+            return []
+        return sorted({str(domain).lower() for domain in domain_names if domain})
+
     def _normalize_payload(self, payload: dict) -> dict:
+        domain_names = payload.get("domain_names")
+        if domain_names is None and "domain" in payload:
+            domain_names = [payload.get("domain")]
         return {
+            "domain_names": self._normalize_domains(domain_names),
             "forward_host": payload.get("forward_host"),
             "forward_port": self._normalize_int(payload.get("forward_port"), default=None),
             "scheme": self._normalize_scheme(payload.get("forward_scheme") or payload.get("scheme")),
@@ -119,9 +129,19 @@ class Syncer:
 
     def _create_details(self, host: dict, payload: dict) -> dict:
         details = self._normalize_payload(payload)
-        if "domain" in host:
-            details["domain"] = host["domain"]
         return {key: value for key, value in details.items() if value is not None}
+
+    def _is_managed_host(self, host: dict) -> bool:
+        meta = host.get("meta") or {}
+        return bool(meta.get("npm_sync_managed"))
+
+    def _managed_missing_hosts(self, managed_hosts: list[dict], desired_domains: set[str]) -> list[dict]:
+        missing: list[dict] = []
+        for host in managed_hosts:
+            host_domains = self._normalize_domains(host.get("domain_names", []))
+            if not any(domain in desired_domains for domain in host_domains):
+                missing.append(host)
+        return missing
 
     def _build_update_payload(self, host: dict, existing: dict) -> dict:
         payload = {
@@ -170,11 +190,11 @@ class Syncer:
             payload["advanced_config"] = host["advanced_config"]
         if "enabled" in host:
             payload["enabled"] = host["enabled"]
+        meta = dict(payload.get("meta") or {})
+        meta["npm_sync_managed"] = True
         if "description" in host:
-            meta = dict(payload.get("meta") or {})
-            meta["npm_sync_managed"] = True
             meta["description"] = host.get("description", "")
-            payload["meta"] = meta
+        payload["meta"] = meta
         if "certificate_strategy" in host or "certificate_name" in host:
             cert_strategy = host.get("certificate_strategy")
             cert_name = host.get("certificate_name")
@@ -188,40 +208,112 @@ class Syncer:
         return payload
 
     def sync(self) -> list[SyncResult]:
+        logger = logging.getLogger(__name__)
+        desired_hosts = self.inventory.get("hosts", [])
         existing_hosts = self.client.get_proxy_hosts()
-        existing_by_domain = {}
 
+        logger.info("Loaded %d desired hosts from inventory", len(desired_hosts))
+        logger.info("Loaded %d current NPM hosts", len(existing_hosts))
+
+        existing_by_domain: dict[str, dict] = {}
         for item in existing_hosts:
             for domain in item.get("domain_names", []):
-                existing_by_domain[domain.lower()] = item
+                if domain:
+                    existing_by_domain[domain.lower()] = item
 
+        desired_domains = {host["domain"].lower() for host in desired_hosts if host.get("domain")}
         results: list[SyncResult] = []
+        counts = {
+            "would-create": 0,
+            "would-update": 0,
+            "would-delete": 0,
+            "created": 0,
+            "updated": 0,
+            "deleted": 0,
+            "unchanged": 0,
+            "skipped-disabled": 0,
+        }
 
-        for host in self.inventory.get("hosts", []):
+        for host in desired_hosts:
+            if not host.get("domain"):
+                continue
             if not host.get("enabled", True):
                 results.append(SyncResult(domain=host["domain"], action="skipped-disabled"))
+                counts["skipped-disabled"] += 1
                 continue
 
-            payload = self._build_payload(host)
             key = host["domain"].lower()
+            existing = existing_by_domain.get(key)
 
-            if key in existing_by_domain:
-                host_id = existing_by_domain[key]["id"]
-                existing = existing_by_domain[key]
+            if existing:
                 payload = self._build_update_payload(host, existing)
                 details = self._diff_payloads(existing, payload)
-                if self.settings.dry_run:
+                if not details:
+                    results.append(SyncResult(domain=host["domain"], action="unchanged"))
+                    counts["unchanged"] += 1
+                elif self.settings.dry_run:
                     results.append(SyncResult(domain=host["domain"], action="would-update", details=details))
+                    counts["would-update"] += 1
                 else:
-                    self.client.update_proxy_host(host_id, payload)
+                    self.client.update_proxy_host(existing["id"], payload)
                     results.append(SyncResult(domain=host["domain"], action="updated", details=details))
+                    counts["updated"] += 1
             else:
                 payload = self._build_payload(host)
                 details = self._create_details(host, payload)
                 if self.settings.dry_run:
                     results.append(SyncResult(domain=host["domain"], action="would-create", details=details))
+                    counts["would-create"] += 1
                 else:
                     self.client.create_proxy_host(payload)
                     results.append(SyncResult(domain=host["domain"], action="created", details=details))
+                    counts["created"] += 1
+
+        managed_hosts = [host for host in existing_hosts if self._is_managed_host(host)]
+        logger.info("Managed NPM hosts: %d", len(managed_hosts))
+
+        delete_candidates: list[dict] = []
+        if not desired_domains and not self.settings.allow_empty_source:
+            logger.warning("Desired host set is empty; delete reconciliation skipped (ALLOW_EMPTY_SOURCE=false).")
+        else:
+            delete_candidates = self._managed_missing_hosts(managed_hosts, desired_domains)
+
+        planned_deletes = len(delete_candidates)
+        if planned_deletes:
+            if not self.settings.force_delete:
+                if self.settings.max_delete_count > 0 and planned_deletes > self.settings.max_delete_count:
+                    raise SystemExit(
+                        f"Planned deletions ({planned_deletes}) exceed MAX_DELETE_COUNT ({self.settings.max_delete_count})."
+                    )
+                if self.settings.max_delete_percent > 0 and managed_hosts:
+                    percent = (planned_deletes / len(managed_hosts)) * 100
+                    if percent > self.settings.max_delete_percent:
+                        raise SystemExit(
+                            f"Planned deletions ({percent:.1f}%) exceed MAX_DELETE_PERCENT ({self.settings.max_delete_percent}%)."
+                        )
+            if not self.settings.delete_enabled and not self.settings.dry_run:
+                logger.warning("Delete reconciliation planned but DELETE_ENABLED=false; no deletions will be executed.")
+
+        for host in delete_candidates:
+            domain_names = host.get("domain_names", [])
+            domain = domain_names[0] if domain_names else ""
+            details = {
+                "id": host.get("id"),
+                "domain": domain,
+                "reason": "managed host missing from hosts.yml",
+            }
+            if self.settings.dry_run or not self.settings.delete_enabled:
+                results.append(SyncResult(domain=domain, action="would-delete", details=details))
+                counts["would-delete"] += 1
+            else:
+                self.client.delete_proxy_host(host["id"])
+                results.append(SyncResult(domain=domain, action="deleted", details=details))
+                counts["deleted"] += 1
+
+        planned_creates = counts["would-create"] + counts["created"]
+        planned_updates = counts["would-update"] + counts["updated"]
+        planned_deletes = counts["would-delete"] + counts["deleted"]
+        logger.info("Planned creates: %d, updates: %d, deletes: %d", planned_creates, planned_updates, planned_deletes)
+        logger.info("Unchanged: %d, skipped-disabled: %d", counts["unchanged"], counts["skipped-disabled"])
 
         return results
