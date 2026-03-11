@@ -214,6 +214,10 @@ Workflow: `.github/workflows/docker-image.yml`
 
 See `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`.
 
+## Security
+
+See `SECURITY.md` for reporting vulnerabilities.
+
 ## License
 
 MIT License. See `LICENSE`.
