@@ -67,6 +67,70 @@ class Syncer:
             }
         }
 
+    def _build_update_payload(self, host: dict, existing: dict) -> dict:
+        payload = {
+            "domain_names": existing.get("domain_names", []),
+            "forward_scheme": existing.get("forward_scheme"),
+            "forward_host": existing.get("forward_host"),
+            "forward_port": existing.get("forward_port"),
+            "access_list_id": existing.get("access_list_id", 0),
+            "certificate_id": existing.get("certificate_id", 0),
+            "ssl_forced": existing.get("ssl_forced", False),
+            "http2_support": existing.get("http2_support", False),
+            "hsts_enabled": existing.get("hsts_enabled", False),
+            "hsts_subdomains": existing.get("hsts_subdomains", False),
+            "block_exploits": existing.get("block_exploits", False),
+            "allow_websocket_upgrade": existing.get("allow_websocket_upgrade", False),
+            "caching_enabled": existing.get("caching_enabled", False),
+            "advanced_config": existing.get("advanced_config", ""),
+            "locations": existing.get("locations", []),
+            "enabled": existing.get("enabled", True),
+            "meta": existing.get("meta", {}),
+        }
+
+        if "domain" in host:
+            payload["domain_names"] = [host["domain"]]
+        if "scheme" in host:
+            payload["forward_scheme"] = host["scheme"]
+        if "forward_host" in host:
+            payload["forward_host"] = host["forward_host"]
+        if "forward_port" in host:
+            payload["forward_port"] = int(host["forward_port"])
+        if "access_list" in host:
+            payload["access_list_id"] = self._get_access_list_id(host["access_list"])
+        if "force_ssl" in host:
+            payload["ssl_forced"] = host["force_ssl"]
+        if "http2_support" in host:
+            payload["http2_support"] = host["http2_support"]
+        if "hsts_enabled" in host:
+            payload["hsts_enabled"] = host["hsts_enabled"]
+        if "block_common_exploits" in host:
+            payload["block_exploits"] = host["block_common_exploits"]
+        if "websocket_support" in host:
+            payload["allow_websocket_upgrade"] = host["websocket_support"]
+        if "caching_enabled" in host:
+            payload["caching_enabled"] = host["caching_enabled"]
+        if "advanced_config" in host:
+            payload["advanced_config"] = host["advanced_config"]
+        if "enabled" in host:
+            payload["enabled"] = host["enabled"]
+        if "description" in host:
+            meta = dict(payload.get("meta") or {})
+            meta["npm_sync_managed"] = True
+            meta["description"] = host.get("description", "")
+            payload["meta"] = meta
+        if "certificate_strategy" in host or "certificate_name" in host:
+            cert_strategy = host.get("certificate_strategy")
+            cert_name = host.get("certificate_name")
+            if cert_strategy == "wildcard" or (cert_strategy is None and cert_name):
+                if cert_name:
+                    found = self._get_certificate_id(cert_name)
+                    payload["certificate_id"] = found or 0
+            elif cert_strategy:
+                payload["certificate_id"] = 0
+
+        return payload
+
     def sync(self) -> list[SyncResult]:
         existing_hosts = self.client.get_proxy_hosts()
         existing_by_domain = {}
@@ -87,12 +151,15 @@ class Syncer:
 
             if key in existing_by_domain:
                 host_id = existing_by_domain[key]["id"]
+                existing = existing_by_domain[key]
+                payload = self._build_update_payload(host, existing)
                 if self.settings.dry_run:
                     results.append(SyncResult(domain=host["domain"], action="would-update"))
                 else:
                     self.client.update_proxy_host(host_id, payload)
                     results.append(SyncResult(domain=host["domain"], action="updated"))
             else:
+                payload = self._build_payload(host)
                 if self.settings.dry_run:
                     results.append(SyncResult(domain=host["domain"], action="would-create"))
                 else:
