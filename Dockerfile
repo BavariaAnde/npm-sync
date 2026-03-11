@@ -13,7 +13,7 @@ COPY src ./src
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir .
 
-LABEL org.opencontainers.image.source="https://github.com/BavariaAnde/npm-sync"
+LABEL org.opencontainers.image.source="https://github.com/bavariaande/npm-sync"
 LABEL org.opencontainers.image.description="Declarative Nginx Proxy Manager synchronization tool using a YAML hosts inventory."
 LABEL org.opencontainers.image.licenses="MIT"
 

@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/BavariaAnde/npm-sync"
-Repository = "https://github.com/BavariaAnde/npm-sync"
-Issues = "https://github.com/BavariaAnde/npm-sync/issues"
+Homepage = "https://github.com/bavariaande/npm-sync"
+Repository = "https://github.com/bavariaande/npm-sync"
+Issues = "https://github.com/bavariaande/npm-sync/issues"
 
 [project.scripts]
 npm-sync = "npm_sync.cli:main"

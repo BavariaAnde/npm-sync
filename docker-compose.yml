@@ -1,6 +1,6 @@
 services:
   npm-sync:
-    image: ghcr.io/BavariaAnde/npm-sync:latest
+    image: ghcr.io/bavariaande/npm-sync:latest
     container_name: npm-sync
     env_file:
       - .env

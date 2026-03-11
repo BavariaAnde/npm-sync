@@ -24,7 +24,7 @@ Declarative synchronization for Nginx Proxy Manager.
 2. Create `.env` and inventory.
 
 ```bash
-git clone https://github.com/BavariaAnde/npm-sync.git
+git clone https://github.com/bavariaande/npm-sync.git
 cd npm-sync
 cp .env.example .env
 cp config/hosts.example.yml config/hosts.yml
@@ -41,7 +41,7 @@ docker compose up --detach
 
 The default `docker-compose.yml` uses the public image:
 
-- `ghcr.io/BavariaAnde/npm-sync:latest`
+- `ghcr.io/bavariaande/npm-sync:latest`
 
 This image is public and can be pulled without login.
 
@@ -202,7 +202,7 @@ This project is designed to publish via GitHub Container Registry (GHCR).
 
 1. Push to `main` or create a tag like `v0.1.0` to trigger the workflow.
 2. After the first push, open the package settings in GitHub and set visibility to Public.
-3. The image tag is `ghcr.io/BavariaAnde/npm-sync:latest`.
+3. The image tag is `ghcr.io/bavariaande/npm-sync:latest`.
 
 ## Release process
 
