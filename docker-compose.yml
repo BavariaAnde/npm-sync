@@ -1,0 +1,9 @@
+services:
+  npm-sync:
+    build: .
+    container_name: npm-sync
+    env_file:
+      - .env
+    volumes:
+      - ./config:/config:ro
+    restart: "no"

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "npm-sync"
+version = "0.1.0"
+description = "Declarative Nginx Proxy Manager sync tool for homelabs and self-hosted environments"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Andreas Göttl" }
+]
+keywords = ["nginx-proxy-manager", "reverse-proxy", "homelab", "selfhosted", "docker"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: Proxy Servers",
+  "Topic :: System :: Systems Administration"
+]
+dependencies = [
+  "requests==2.32.3",
+  "PyYAML==6.0.2",
+  "python-dotenv==1.0.1"
+]
+
+[project.scripts]
+npm-sync = "npm_sync.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

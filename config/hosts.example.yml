@@ -1,0 +1,27 @@
+defaults:
+  scheme: http
+  access_list: lan
+  certificate_strategy: wildcard
+  certificate_name: "*.example.com"
+  block_common_exploits: true
+  websocket_support: true
+  caching_enabled: false
+  http2_support: true
+  hsts_enabled: false
+  force_ssl: true
+
+hosts:
+  - domain: immich.example.com
+    forward_host: immich-server
+    forward_port: 2283
+    description: Immich on same Docker network
+
+  - domain: paperless.example.com
+    forward_host: 192.168.1.10
+    forward_port: 8000
+    description: Paperless on another host
+
+  - domain: dev.service.example.com
+    forward_host: dev-service
+    forward_port: 3000
+    description: Nested subdomain example
