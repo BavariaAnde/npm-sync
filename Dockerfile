@@ -19,5 +19,5 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 USER appuser
 
-ENTRYPOINT ["python", "-m", "npm_sync"]
-CMD ["--config", "/config/hosts.yml"]
+ENTRYPOINT ["python"]
+CMD ["-m", "npm_sync", "--config", "/config/hosts.yml"]

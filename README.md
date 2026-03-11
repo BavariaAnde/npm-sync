@@ -26,6 +26,8 @@ docker compose up --detach
 
 The default `docker-compose.yml` uses `ghcr.io/BavariaAnde/npm-sync:latest`.
 
+The web UI is available on `http://localhost:8080` and is protected by basic auth.
+
 ## Local development build
 
 ```bash
@@ -59,6 +61,14 @@ Runtime:
 
 - `DRY_RUN` (`true` or `false`)
 - `LOG_LEVEL` (`INFO`, `DEBUG`, and so on)
+
+UI:
+
+- `UI_USERS` basic auth users (`user:password`, comma-separated)
+- `UI_BIND` bind address (default `0.0.0.0`)
+- `UI_PORT` listen port (default `8080`)
+- `HISTORY_PATH` JSON history file path (default `/data/history.json`)
+- `HISTORY_MAX` max stored runs (default `200`)
 
 Deletion safety:
 

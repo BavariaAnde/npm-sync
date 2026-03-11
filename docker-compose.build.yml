@@ -5,8 +5,12 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: npm-sync
+    command: ["-m", "npm_sync.web"]
     env_file:
       - .env
     volumes:
       - ./config:/config:ro
+      - ./data:/data
+    ports:
+      - "${UI_PORT:-8080}:8080"
     restart: "no"
