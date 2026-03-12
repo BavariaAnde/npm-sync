@@ -65,6 +65,7 @@ class Syncer:
             "letsencrypt_email": self.settings.cert_email,
             "letsencrypt_agree": self.settings.cert_agree_tos,
         }
+        dns_payload: dict[str, object] = {}
         if self.settings.cert_dns_challenge:
             credentials = self.settings.cert_dns_credentials.strip()
             provider = self.settings.cert_dns_provider.strip().lower()
@@ -73,15 +74,18 @@ class Syncer:
                     credentials = f"dns_cloudflare_api_token={credentials}"
             if "," in credentials and "\n" not in credentials:
                 credentials = "\n".join(part.strip() for part in credentials.split(",") if part.strip())
-            meta["dns_challenge"] = True
-            meta["dns_provider"] = self.settings.cert_dns_provider
-            meta["dns_provider_credentials"] = credentials
+            dns_payload = {
+                "dns_challenge": True,
+                "dns_provider": self.settings.cert_dns_provider,
+                "dns_provider_credentials": credentials,
+            }
 
         payload = {
             "provider": "letsencrypt",
             "domain_names": domain_names,
             "nice_name": cert_name,
             "meta": meta,
+            **dns_payload,
         }
         try:
             self.client.create_certificate(payload)
