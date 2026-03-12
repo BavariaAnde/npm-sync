@@ -87,6 +87,20 @@ def _build_summary(results: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _run_sync(dry_run: bool, config_path: str) -> dict[str, Any]:
+    if not Settings.npm_base_url:
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "dry_run": dry_run,
+            "error": "NPM_BASE_URL is required",
+        }
+
+    if not Settings.npm_token and not (Settings.npm_identity and Settings.npm_secret):
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "dry_run": dry_run,
+            "error": "Provide NPM_TOKEN or both NPM_IDENTITY and NPM_SECRET",
+        }
+
     Settings.dry_run = dry_run
     client = NPMClient(
         base_url=Settings.npm_base_url,
@@ -235,6 +249,8 @@ def run():
 
     with RUN_LOCK:
         entry = _run_sync(dry_run=dry_run, config_path=config_path)
+    if "error" in entry:
+        return jsonify(entry), 400
     return jsonify(entry)
 
 
@@ -243,12 +259,6 @@ def main():
         level=getattr(logging, Settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(message)s",
     )
-
-    if not Settings.npm_base_url:
-        raise SystemExit("NPM_BASE_URL is required")
-
-    if not Settings.npm_token and not (Settings.npm_identity and Settings.npm_secret):
-        raise SystemExit("Provide NPM_TOKEN or both NPM_IDENTITY and NPM_SECRET")
 
     if not _load_users():
         raise SystemExit("UI_USERS must be set for basic auth")
