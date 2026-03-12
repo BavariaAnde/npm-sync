@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.1 - 2026-03-12
+
 - Added minimal CI workflow
 - Documented release process and forked image guidance
 - Added web UI with run history and action overview
