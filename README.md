@@ -12,6 +12,12 @@ Why use it:
 - Keep proxy hosts consistent across environments
 - Track changes in Git
 
+## Web UI
+
+The built-in web UI lets you trigger Dry Run / Apply and review results with clear action badges and a history view.
+
+![npm-sync UI preview](docs/ui-demo.gif)
+
 ## Install with Docker Compose (public image)
 
 ```bash
@@ -26,7 +32,7 @@ docker compose up --detach
 
 The default `docker-compose.yml` uses `ghcr.io/BavariaAnde/npm-sync:latest`.
 
-The web UI is available on `http://localhost:8080` and is protected by basic auth.
+The web UI is available on `http://localhost:8080` (or your `UI_PORT`) and is protected by basic auth.
 
 ## Local development build
 
@@ -67,8 +73,10 @@ UI:
 - `UI_USERS` basic auth users (`user:password`, comma-separated)
 - `UI_BIND` bind address (default `0.0.0.0`)
 - `UI_PORT` listen port (default `8080`)
-- `HISTORY_PATH` JSON history file path (default `/data/history.json`)
+- `HISTORY_PATH` JSON history file path (default `/app/data/history.json`)
 - `HISTORY_MAX` max stored runs (default `200`)
+
+History is stored in the Docker volume `npm_sync_history` so it survives container recreation.
 
 Deletion safety:
 

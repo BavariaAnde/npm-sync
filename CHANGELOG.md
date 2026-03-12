@@ -4,6 +4,9 @@
 
 - Added minimal CI workflow
 - Documented release process and forked image guidance
+- Added web UI with run history and action overview
+- Added history persistence via Docker volume
+- Improved UI styling and readability
 
 ## 0.1.0 - 2026-03-11
 
