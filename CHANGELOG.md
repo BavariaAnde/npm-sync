@@ -9,6 +9,9 @@
 - Improved UI styling and readability
 - Simplified UI controls and filtering
 - Added per-host certificate selection (non-wildcard)
+- Added Let's Encrypt DNS challenge certificate requests via env configuration
+- Fixed DNS provider credentials format for NPM certificate API
+- Removed unsupported propagation_seconds from certificate payload
 
 ## 0.1.0 - 2026-03-11
 

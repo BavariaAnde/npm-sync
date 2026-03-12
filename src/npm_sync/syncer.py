@@ -14,6 +14,7 @@ class Syncer:
         self.settings = settings
         self.inventory = inventory
         self.defaults = inventory.get("defaults", {})
+        self._cert_cache: dict[str, int] = {}
 
     def _get_access_list_id(self, name: str) -> int:
         for item in self.client.get_access_lists():
@@ -21,13 +22,74 @@ class Syncer:
                 return item["id"]
         return 0
 
-    def _get_certificate_id(self, certificate_name: str) -> int | None:
+    def _get_certificate_id(self, certificate_name: str, allow_wildcard: bool = True) -> int | None:
+        target = certificate_name.strip().lower()
+        if not target:
+            return None
+        if target in self._cert_cache:
+            return self._cert_cache[target]
         for item in self.client.get_certificates():
-            if item.get("nice_name") == certificate_name:
+            nice_name = (item.get("nice_name") or "").strip().lower()
+            domain_names = [str(name).strip().lower() for name in item.get("domain_names", [])]
+            if nice_name and nice_name == target:
+                self._cert_cache[target] = item["id"]
                 return item["id"]
-            if certificate_name in item.get("domain_names", []):
+            if target in domain_names:
+                self._cert_cache[target] = item["id"]
                 return item["id"]
+            if allow_wildcard:
+                for domain in domain_names:
+                    if domain.startswith("*.") and target.endswith(domain[1:]):
+                        self._cert_cache[target] = item["id"]
+                        return item["id"]
         return None
+
+    def _ensure_certificate(self, cert_name: str, domain_names: list[str]) -> int | None:
+        if not self.settings.cert_email or not self.settings.cert_agree_tos:
+            logging.getLogger(__name__).warning(
+                "CERT_EMAIL and CERT_AGREE_TOS must be set to request certificates."
+            )
+            return None
+        if self.settings.cert_dns_challenge and not self.settings.cert_dns_provider:
+            logging.getLogger(__name__).warning(
+                "CERT_DNS_PROVIDER must be set for DNS challenge."
+            )
+            return None
+        if self.settings.cert_dns_challenge and not self.settings.cert_dns_credentials:
+            logging.getLogger(__name__).warning(
+                "CERT_DNS_PROVIDER_CREDENTIALS must be a non-empty string for DNS challenge."
+            )
+            return None
+
+        meta = {
+            "letsencrypt_email": self.settings.cert_email,
+            "letsencrypt_agree": self.settings.cert_agree_tos,
+        }
+        if self.settings.cert_dns_challenge:
+            credentials = self.settings.cert_dns_credentials.strip()
+            provider = self.settings.cert_dns_provider.strip().lower()
+            if provider == "cloudflare" and credentials and "dns_cloudflare_api_token=" not in credentials:
+                if "=" not in credentials:
+                    credentials = f"dns_cloudflare_api_token={credentials}"
+            if "," in credentials and "\n" not in credentials:
+                credentials = "\n".join(part.strip() for part in credentials.split(",") if part.strip())
+            meta["dns_challenge"] = True
+            meta["dns_provider"] = self.settings.cert_dns_provider
+            meta["dns_provider_credentials"] = credentials
+            meta["propagation_seconds"] = self.settings.cert_dns_propagation_seconds
+
+        payload = {
+            "provider": "letsencrypt",
+            "domain_names": domain_names,
+            "nice_name": cert_name,
+            "meta": meta,
+        }
+        try:
+            self.client.create_certificate(payload)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Certificate request failed: %s", exc)
+            return None
+        return self._get_certificate_id(cert_name, allow_wildcard=False)
 
     def _resolve_bool(self, host: dict, key: str, default: bool) -> bool:
         return host[key] if key in host else default
@@ -42,10 +104,26 @@ class Syncer:
         certificate_id = 0
         if cert_strategy == "none":
             certificate_id = 0
+        elif cert_strategy == "letsencrypt" and cert_name:
+            found = self._get_certificate_id(cert_name, allow_wildcard=False)
+            if not found:
+                found = self._ensure_certificate(cert_name, [host["domain"]])
+            if found:
+                certificate_id = found
+            else:
+                logging.getLogger(__name__).warning(
+                    "Certificate '%s' not found in NPM. Using certificate_id=0.",
+                    cert_name,
+                )
         elif cert_name:
             found = self._get_certificate_id(cert_name)
             if found:
                 certificate_id = found
+            else:
+                logging.getLogger(__name__).warning(
+                    "Certificate '%s' not found in NPM. Using certificate_id=0.",
+                    cert_name,
+                )
 
         return {
             "domain_names": [host["domain"]],
@@ -202,9 +280,24 @@ class Syncer:
             cert_name = host.get("certificate_name")
             if cert_strategy == "none":
                 payload["certificate_id"] = 0
+            elif cert_strategy == "letsencrypt" and cert_name:
+                found = self._get_certificate_id(cert_name, allow_wildcard=False)
+                if not found:
+                    found = self._ensure_certificate(cert_name, [host["domain"]])
+                payload["certificate_id"] = found or 0
+                if not found:
+                    logging.getLogger(__name__).warning(
+                        "Certificate '%s' not found in NPM. Using certificate_id=0.",
+                        cert_name,
+                    )
             elif cert_name:
                 found = self._get_certificate_id(cert_name)
                 payload["certificate_id"] = found or 0
+                if not found:
+                    logging.getLogger(__name__).warning(
+                        "Certificate '%s' not found in NPM. Using certificate_id=0.",
+                        cert_name,
+                    )
 
         return payload
 

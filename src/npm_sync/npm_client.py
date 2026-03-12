@@ -57,6 +57,12 @@ class NPMClient:
         return response.json()
 
     def get_certificates(self):
-        response = self.session.get(f"{self.base_url}/api/nginx/certificates", timeout=self.timeout)
+        response = self.session.get(f"{self.base_url}/api/certificates", timeout=self.timeout)
         response.raise_for_status()
+        return response.json()
+
+    def create_certificate(self, payload):
+        response = self.session.post(f"{self.base_url}/api/certificates", json=payload, timeout=self.timeout)
+        if response.status_code >= 400:
+            raise RuntimeError(f"Certificate request failed: {response.status_code} {response.text}")
         return response.json()

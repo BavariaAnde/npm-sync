@@ -86,6 +86,14 @@ Deletion safety:
 - `MAX_DELETE_PERCENT` (0 to 100, 0 disables)
 - `FORCE_DELETE` (`true` or `false`)
 
+Let's Encrypt (DNS challenge):
+
+- `CERT_EMAIL` email used for Let's Encrypt
+- `CERT_AGREE_TOS` (`true` or `false`)
+- `CERT_DNS_CHALLENGE` (`true` or `false`)
+- `CERT_DNS_PROVIDER` (for example `cloudflare`)
+- `CERT_DNS_PROVIDER_CREDENTIALS` provider credentials string (key=value, comma or newline separated)
+
 ## Inventory (hosts.yml)
 
 Minimal example:
@@ -114,11 +122,24 @@ Certificate examples:
   certificate_strategy: custom
   certificate_name: "app.example.com"
 
+# Request a new Let's Encrypt DNS certificate (uses env settings)
+- domain: new.example.com
+  forward_host: new
+  forward_port: 8080
+  certificate_strategy: letsencrypt
+  certificate_name: "new.example.com"
+
 # Disable certificate / SSL
 - domain: internal.example.com
   forward_host: internal
   forward_port: 8080
   certificate_strategy: none
+```
+
+Example `CERT_DNS_PROVIDER_CREDENTIALS` for Cloudflare:
+
+```
+dns_cloudflare_api_token=YOUR_TOKEN
 ```
 
 ## How to use
