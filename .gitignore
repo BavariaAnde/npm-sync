@@ -9,6 +9,7 @@ venv/
 !.env.example
 
 config/hosts.yml
+docs/WORKFLOW.md
 
 dist/
 build/

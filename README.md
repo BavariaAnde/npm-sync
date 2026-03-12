@@ -45,10 +45,12 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up --build --de
 NPM API:
 
 - `NPM_BASE_URL` URL to your NPM instance
-- `NPM_TOKEN` token auth (preferred)
+- `NPM_TOKEN` token auth (fast, but tokens can expire)
 - `NPM_IDENTITY` identity email (used when token is empty)
 - `NPM_SECRET` secret/password (used when token is empty)
 - `NPM_VERIFY_SSL` verify TLS (`true` or `false`)
+
+Note: If you use `NPM_TOKEN` and runs start failing with `jwt expired`, either generate a new token in NPM or switch to `NPM_IDENTITY` + `NPM_SECRET` so npm-sync can request a fresh token automatically.
 
 Defaults used only when creating new hosts:
 
