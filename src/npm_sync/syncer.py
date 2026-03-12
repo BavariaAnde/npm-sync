@@ -76,7 +76,6 @@ class Syncer:
             meta["dns_challenge"] = True
             meta["dns_provider"] = self.settings.cert_dns_provider
             meta["dns_provider_credentials"] = credentials
-            meta["propagation_seconds"] = self.settings.cert_dns_propagation_seconds
 
         payload = {
             "provider": "letsencrypt",
