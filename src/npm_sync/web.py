@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -104,6 +105,7 @@ def _run_sync(dry_run: bool, config_path: str) -> dict[str, Any]:
             "error": "Provide NPM_TOKEN or both NPM_IDENTITY and NPM_SECRET",
         }
 
+    start = time.monotonic()
     Settings.dry_run = dry_run
     client = NPMClient(
         base_url=Settings.npm_base_url,
@@ -118,9 +120,11 @@ def _run_sync(dry_run: bool, config_path: str) -> dict[str, Any]:
     results = syncer.sync()
     payload = [result.__dict__ for result in results]
     summary = _build_summary(payload)
+    duration_ms = int((time.monotonic() - start) * 1000)
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "dry_run": dry_run,
+        "duration_ms": duration_ms,
         "summary": summary,
         "results": payload,
     }
@@ -217,6 +221,28 @@ def index():
 
       <div id=\"summary\"></div>
 
+      <div style=\"margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;\">
+        <input id=\"search\" placeholder=\"Search domain\" style=\"padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);\" />
+        <select id=\"sort\" style=\"padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);\">
+          <option value=\"domain\">Sort: Domain</option>
+          <option value=\"action\">Sort: Action</option>
+        </select>
+        <label class=\"muted\" style=\"display:flex;align-items:center;gap:6px;\">
+          <input id=\"changes-only\" type=\"checkbox\" /> Show changes only
+        </label>
+      </div>
+
+      <div id=\"filters\" style=\"margin-top: 10px; display:flex; gap:6px; flex-wrap: wrap;\">
+        <button class=\"tab active\" data-filter=\"would-create\" onclick=\"toggleFilter('would-create')\">would-create</button>
+        <button class=\"tab active\" data-filter=\"would-update\" onclick=\"toggleFilter('would-update')\">would-update</button>
+        <button class=\"tab active\" data-filter=\"would-delete\" onclick=\"toggleFilter('would-delete')\">would-delete</button>
+        <button class=\"tab active\" data-filter=\"created\" onclick=\"toggleFilter('created')\">created</button>
+        <button class=\"tab active\" data-filter=\"updated\" onclick=\"toggleFilter('updated')\">updated</button>
+        <button class=\"tab active\" data-filter=\"deleted\" onclick=\"toggleFilter('deleted')\">deleted</button>
+        <button class=\"tab active\" data-filter=\"unchanged\" onclick=\"toggleFilter('unchanged')\">unchanged</button>
+        <button class=\"tab active\" data-filter=\"skipped-disabled\" onclick=\"toggleFilter('skipped-disabled')\">skipped-disabled</button>
+      </div>
+
       <table id=\"results\" class=\"hidden\">
         <thead>
           <tr>
@@ -244,6 +270,8 @@ def index():
   </div>
   <script>
     let cachedHistory = [];
+    let currentEntry = null;
+    const activeFilters = new Set(['would-create','would-update','would-delete','created','updated','deleted','unchanged','skipped-disabled']);
 
     async function fetchHistory() {
       const res = await fetch('/api/history');
@@ -257,28 +285,56 @@ def index():
     }
 
     function render(entry) {
+      currentEntry = entry;
       const summary = document.getElementById('summary');
-      const resultsTable = document.getElementById('results');
-      const tbody = resultsTable.querySelector('tbody');
-      tbody.innerHTML = '';
-
-      const summaryItems = Object.entries(entry.summary || {});
+      const summaryItems = Object.entries(entry.summary || {}).filter(([, value]) => value !== 0);
       const cards = summaryItems.map(([key, value]) => {
         return `<div class=\"card\"><div class=\"label\">${key}</div><div class=\"value\">${value}</div></div>`;
       }).join('');
 
+      const duration = entry.duration_ms ? `${entry.duration_ms} ms` : 'n/a';
       summary.innerHTML = `
         <div class=\"card\">
           <div class=\"label\">Last run</div>
           <div class=\"value\">${entry.timestamp || 'n/a'}</div>
-          <div class=\"muted\">Dry run: ${entry.dry_run ? 'true' : 'false'}</div>
+          <div class=\"muted\">Dry run: ${entry.dry_run ? 'true' : 'false'} · Duration: ${duration}</div>
         </div>
-        <div class=\"cards\">${cards}</div>
+        <div class=\"cards\">${cards || ''}</div>
       `;
 
-      if (entry.results && entry.results.length) {
+      renderResults();
+    }
+
+    function renderResults() {
+      const resultsTable = document.getElementById('results');
+      const tbody = resultsTable.querySelector('tbody');
+      tbody.innerHTML = '';
+
+      if (!currentEntry || !currentEntry.results) {
+        resultsTable.classList.add('hidden');
+        return;
+      }
+
+      const search = document.getElementById('search').value.toLowerCase();
+      const sort = document.getElementById('sort').value;
+      const changesOnly = document.getElementById('changes-only').checked;
+
+      let rows = currentEntry.results.filter(row => {
+        const action = row.action || '';
+        if (!activeFilters.has(action)) return false;
+        if (search && !(row.domain || '').toLowerCase().includes(search)) return false;
+        if (changesOnly && (!row.details || Object.keys(row.details).length === 0)) return false;
+        return true;
+      });
+
+      rows.sort((a, b) => {
+        if (sort === 'action') return (a.action || '').localeCompare(b.action || '');
+        return (a.domain || '').localeCompare(b.domain || '');
+      });
+
+      if (rows.length) {
         resultsTable.classList.remove('hidden');
-        for (const row of entry.results) {
+        for (const row of rows) {
           const tr = document.createElement('tr');
           const details = row.details ? JSON.stringify(row.details, null, 2) : '';
           const badge = actionBadge(row.action || '');
@@ -342,26 +398,52 @@ def index():
           <div class=\"muted\">Dry run: ${entry.dry_run ? 'true' : 'false'}</div>
           <div class=\"muted\">${summary}</div>
         </div>
-        <div style=\"margin-top: 12px;\">
-          <table>
-            <thead><tr><th>Domain</th><th>Action</th><th>Details</th></tr></thead>
-            <tbody>
-              ${(entry.results || []).map(row => {
-                const details = row.details ? JSON.stringify(row.details, null, 2) : '';
-                return `<tr><td>${row.domain || ''}</td><td>${actionBadge(row.action || '')}</td><td><pre>${details}</pre></td></tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+        <div style=\"margin-top: 10px;\">
+          <label class=\"muted\" style=\"display:flex;align-items:center;gap:6px;\">\n            <input id=\"history-changes-only\" type=\"checkbox\" onchange=\"renderHistoryDetail(${index})\" /> Show changes only\n          </label>\n        </div>
+        <div id=\"history-table\" style=\"margin-top: 12px;\"></div>
       `;
+      renderHistoryDetail(index);
+    }
+
+    function renderHistoryDetail(index) {
+      const entry = cachedHistory[index];
+      const changesOnly = document.getElementById('history-changes-only')?.checked;
+      const rows = (entry.results || []).filter(row => {
+        if (!changesOnly) return true;
+        return row.details && Object.keys(row.details).length > 0;
+      });
+      const table = `
+        <table>
+          <thead><tr><th>Domain</th><th>Action</th><th>Details</th></tr></thead>
+          <tbody>
+            ${rows.map(row => {
+              const details = row.details ? JSON.stringify(row.details, null, 2) : '';
+              return `<tr><td>${row.domain || ''}</td><td>${actionBadge(row.action || '')}</td><td><pre>${details}</pre></td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('history-table').innerHTML = table;
     }
 
     function switchTab(name) {
-      document.querySelectorAll('.tab').forEach(tab => {
+      document.querySelectorAll('.tab[data-tab]').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.tab === name);
       });
       document.getElementById('tab-runs').classList.toggle('hidden', name !== 'runs');
       document.getElementById('tab-history').classList.toggle('hidden', name !== 'history');
+    }
+
+    function toggleFilter(action) {
+      if (activeFilters.has(action)) {
+        activeFilters.delete(action);
+      } else {
+        activeFilters.add(action);
+      }
+      document.querySelectorAll(`[data-filter=\"${action}\"]`).forEach(btn => {
+        btn.classList.toggle('active', activeFilters.has(action));
+      });
+      renderResults();
     }
 
     async function runSync(dryRun) {
@@ -379,6 +461,10 @@ def index():
       renderHistoryList();
       render(data);
     }
+
+    document.getElementById('search').addEventListener('input', renderResults);
+    document.getElementById('sort').addEventListener('change', renderResults);
+    document.getElementById('changes-only').addEventListener('change', renderResults);
 
     fetchHistory();
   </script>
