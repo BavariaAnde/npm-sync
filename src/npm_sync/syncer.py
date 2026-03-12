@@ -44,56 +44,6 @@ class Syncer:
                         return item["id"]
         return None
 
-    def _ensure_certificate(self, cert_name: str, domain_names: list[str]) -> int | None:
-        if not self.settings.cert_email or not self.settings.cert_agree_tos:
-            logging.getLogger(__name__).warning(
-                "CERT_EMAIL and CERT_AGREE_TOS must be set to request certificates."
-            )
-            return None
-        if self.settings.cert_dns_challenge and not self.settings.cert_dns_provider:
-            logging.getLogger(__name__).warning(
-                "CERT_DNS_PROVIDER must be set for DNS challenge."
-            )
-            return None
-        if self.settings.cert_dns_challenge and not self.settings.cert_dns_credentials:
-            logging.getLogger(__name__).warning(
-                "CERT_DNS_PROVIDER_CREDENTIALS must be a non-empty string for DNS challenge."
-            )
-            return None
-
-        meta = {
-            "letsencrypt_email": self.settings.cert_email,
-            "letsencrypt_agree": self.settings.cert_agree_tos,
-        }
-        dns_payload: dict[str, object] = {}
-        if self.settings.cert_dns_challenge:
-            credentials = self.settings.cert_dns_credentials.strip()
-            provider = self.settings.cert_dns_provider.strip().lower()
-            if provider == "cloudflare" and credentials and "dns_cloudflare_api_token=" not in credentials:
-                if "=" not in credentials:
-                    credentials = f"dns_cloudflare_api_token={credentials}"
-            if "," in credentials and "\n" not in credentials:
-                credentials = "\n".join(part.strip() for part in credentials.split(",") if part.strip())
-            dns_payload = {
-                "dns_challenge": True,
-                "dns_provider": self.settings.cert_dns_provider,
-                "dns_provider_credentials": credentials,
-            }
-
-        payload = {
-            "provider": "letsencrypt",
-            "domain_names": domain_names,
-            "nice_name": cert_name,
-            "meta": meta,
-            **dns_payload,
-        }
-        try:
-            self.client.create_certificate(payload)
-        except Exception as exc:
-            logging.getLogger(__name__).warning("Certificate request failed: %s", exc)
-            return None
-        return self._get_certificate_id(cert_name, allow_wildcard=False)
-
     def _resolve_bool(self, host: dict, key: str, default: bool) -> bool:
         return host[key] if key in host else default
 
@@ -107,26 +57,21 @@ class Syncer:
         certificate_id = 0
         if cert_strategy == "none":
             certificate_id = 0
-        elif cert_strategy == "letsencrypt" and cert_name:
-            found = self._get_certificate_id(cert_name, allow_wildcard=False)
-            if not found:
-                found = self._ensure_certificate(cert_name, [host["domain"]])
-            if found:
-                certificate_id = found
-            else:
+        else:
+            if cert_strategy == "letsencrypt" and cert_name:
                 logging.getLogger(__name__).warning(
-                    "Certificate '%s' not found in NPM. Using certificate_id=0.",
+                    "certificate_strategy=letsencrypt is not supported; using existing certificate '%s' if available.",
                     cert_name,
                 )
-        elif cert_name:
-            found = self._get_certificate_id(cert_name)
-            if found:
-                certificate_id = found
-            else:
-                logging.getLogger(__name__).warning(
-                    "Certificate '%s' not found in NPM. Using certificate_id=0.",
-                    cert_name,
-                )
+            if cert_name:
+                found = self._get_certificate_id(cert_name)
+                if found:
+                    certificate_id = found
+                else:
+                    logging.getLogger(__name__).warning(
+                        "Certificate '%s' not found in NPM. Using certificate_id=0.",
+                        cert_name,
+                    )
 
         return {
             "domain_names": [host["domain"]],
@@ -284,9 +229,11 @@ class Syncer:
             if cert_strategy == "none":
                 payload["certificate_id"] = 0
             elif cert_strategy == "letsencrypt" and cert_name:
-                found = self._get_certificate_id(cert_name, allow_wildcard=False)
-                if not found:
-                    found = self._ensure_certificate(cert_name, [host["domain"]])
+                logging.getLogger(__name__).warning(
+                    "certificate_strategy=letsencrypt is not supported; using existing certificate '%s' if available.",
+                    cert_name,
+                )
+                found = self._get_certificate_id(cert_name)
                 payload["certificate_id"] = found or 0
                 if not found:
                     logging.getLogger(__name__).warning(

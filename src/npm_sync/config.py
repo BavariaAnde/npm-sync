@@ -54,10 +54,3 @@ class Settings:
     max_delete_count = env_int("MAX_DELETE_COUNT", 0)
     max_delete_percent = env_float("MAX_DELETE_PERCENT", 0.0)
     force_delete = env_bool("FORCE_DELETE", False)
-
-    cert_email = os.getenv("CERT_EMAIL", "")
-    cert_agree_tos = env_bool("CERT_AGREE_TOS", False)
-    cert_dns_challenge = env_bool("CERT_DNS_CHALLENGE", True)
-    cert_dns_provider = os.getenv("CERT_DNS_PROVIDER", "")
-    cert_dns_credentials = os.getenv("CERT_DNS_PROVIDER_CREDENTIALS", "")
-    cert_dns_propagation_seconds = env_int("CERT_DNS_PROPAGATION_SECONDS", 30)
