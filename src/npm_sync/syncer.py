@@ -237,13 +237,29 @@ class Syncer:
         for host in desired_hosts:
             if not host.get("domain"):
                 continue
-            if not host.get("enabled", True):
-                results.append(SyncResult(domain=host["domain"], action="skipped-disabled"))
-                counts["skipped-disabled"] += 1
-                continue
 
             key = host["domain"].lower()
             existing = existing_by_domain.get(key)
+            enabled = host.get("enabled", True)
+
+            if not enabled:
+                if existing:
+                    payload = self._build_update_payload(host, existing)
+                    details = self._diff_payloads(existing, payload)
+                    if not details:
+                        results.append(SyncResult(domain=host["domain"], action="unchanged"))
+                        counts["unchanged"] += 1
+                    elif self.settings.dry_run:
+                        results.append(SyncResult(domain=host["domain"], action="would-update", details=details))
+                        counts["would-update"] += 1
+                    else:
+                        self.client.update_proxy_host(existing["id"], payload)
+                        results.append(SyncResult(domain=host["domain"], action="updated", details=details))
+                        counts["updated"] += 1
+                else:
+                    results.append(SyncResult(domain=host["domain"], action="skipped-disabled"))
+                    counts["skipped-disabled"] += 1
+                continue
 
             if existing:
                 payload = self._build_update_payload(host, existing)

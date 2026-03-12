@@ -50,8 +50,11 @@ def _require_auth() -> bool:
 
 
 def _history_path() -> Path:
-    path = os.getenv("HISTORY_PATH", "/data/history.json")
-    return Path(path)
+    raw = os.getenv("HISTORY_PATH", "/app/data/history.json")
+    path = Path(raw)
+    if not path.is_absolute():
+        path = Path("/app/data") / path
+    return path
 
 
 def _read_history() -> list[dict[str, Any]]:
@@ -146,41 +149,111 @@ def index():
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>npm-sync</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; color: #1a1a1a; }
-    h1 { margin-bottom: 8px; }
-    button { margin-right: 8px; padding: 8px 14px; }
-    .summary { margin-top: 16px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 16px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background: #f5f5f5; }
-    .muted { color: #666; }
+    :root {
+      --bg: #0f1115;
+      --panel: #151922;
+      --panel-2: #1c2230;
+      --text: #e6e9ef;
+      --muted: #aab2c0;
+      --accent: #4bb3fd;
+      --green: #43d19e;
+      --yellow: #f6c344;
+      --red: #ff6b6b;
+      --blue: #4bb3fd;
+      --border: #2a3245;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: \"Segoe UI\", system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+    header { padding: 20px 28px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; }
+    h1 { margin: 0; font-size: 22px; }
+    .muted { color: var(--muted); }
+    .wrap { padding: 24px 28px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 10px 14px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; border-radius: 8px; }
+    .tab.active { background: var(--panel-2); border-color: var(--accent); }
+    .actions { display: flex; gap: 10px; margin: 12px 0 18px; }
+    button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; color: #0b0d12; font-weight: 600; }
+    .btn-dry { background: var(--yellow); }
+    .btn-apply { background: var(--green); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--border); padding: 12px; border-radius: 10px; }
+    .card .label { font-size: 12px; color: var(--muted); }
+    .card .value { font-size: 20px; font-weight: 600; margin-top: 6px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    th { background: var(--panel-2); font-weight: 600; }
+    tr:hover td { background: #1a2030; }
+    .badge { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .b-create { background: rgba(67, 209, 158, 0.2); color: var(--green); }
+    .b-update { background: rgba(75, 179, 253, 0.2); color: var(--blue); }
+    .b-delete { background: rgba(255, 107, 107, 0.2); color: var(--red); }
+    .b-unchanged { background: rgba(170, 178, 192, 0.2); color: var(--muted); }
+    .b-skip { background: rgba(246, 195, 68, 0.2); color: var(--yellow); }
+    pre { white-space: pre-wrap; margin: 0; color: var(--muted); }
+    .hidden { display: none; }
+    .history-list { display: grid; gap: 10px; }
+    .history-item { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); cursor: pointer; }
+    .history-item.active { border-color: var(--accent); background: var(--panel-2); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <h1>npm-sync</h1>
-  <div class=\"muted\">Trigger a dry-run or apply changes and review results.</div>
-  <div style=\"margin-top: 12px;\">
-    <button onclick=\"runSync(true)\">Dry Run</button>
-    <button onclick=\"runSync(false)\">Apply</button>
+  <header>
+    <h1>npm-sync</h1>
+    <div class=\"muted\">Manage Nginx Proxy Manager with a declarative inventory.</div>
+  </header>
+  <div class=\"wrap\">
+    <div class=\"tabs\">
+      <button class=\"tab active\" data-tab=\"runs\" onclick=\"switchTab('runs')\">Runs</button>
+      <button class=\"tab\" data-tab=\"history\" onclick=\"switchTab('history')\">History</button>
+    </div>
+
+    <div id=\"tab-runs\">
+      <div class=\"actions\">
+        <button class=\"btn-dry\" onclick=\"runSync(true)\">Dry Run</button>
+        <button class=\"btn-apply\" onclick=\"runSync(false)\">Apply</button>
+      </div>
+
+      <div id=\"summary\"></div>
+
+      <table id=\"results\" class=\"hidden\">
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Action</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id=\"tab-history\" class=\"hidden\">
+      <div class=\"row\">
+        <div>
+          <div class=\"muted\">Recent runs</div>
+          <div id=\"history-list\" class=\"history-list\" style=\"margin-top: 12px;\"></div>
+        </div>
+        <div>
+          <div class=\"muted\">Selected run</div>
+          <div id=\"history-detail\" style=\"margin-top: 12px;\"></div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class=\"summary\" id=\"summary\"></div>
-  <table id=\"results\" style=\"display:none;\">
-    <thead>
-      <tr>
-        <th>Domain</th>
-        <th>Action</th>
-        <th>Details</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
   <script>
+    let cachedHistory = [];
+
     async function fetchHistory() {
       const res = await fetch('/api/history');
       if (!res.ok) return;
       const history = await res.json();
-      if (!history.length) return;
-      render(history[0]);
+      cachedHistory = history || [];
+      if (cachedHistory.length) {
+        render(cachedHistory[0]);
+      }
+      renderHistoryList();
     }
 
     function render(entry) {
@@ -189,25 +262,106 @@ def index():
       const tbody = resultsTable.querySelector('tbody');
       tbody.innerHTML = '';
 
-      const summaryItems = Object.entries(entry.summary || {})
-        .map(([key, value]) => `<strong>${key}</strong>: ${value}`)
-        .join(' | ');
+      const summaryItems = Object.entries(entry.summary || {});
+      const cards = summaryItems.map(([key, value]) => {
+        return `<div class=\"card\"><div class=\"label\">${key}</div><div class=\"value\">${value}</div></div>`;
+      }).join('');
 
-      summary.innerHTML = `<div><strong>Last run:</strong> ${entry.timestamp}</div>`
-        + `<div><strong>Dry run:</strong> ${entry.dry_run}</div>`
-        + `<div>${summaryItems || 'No results yet.'}</div>`;
+      summary.innerHTML = `
+        <div class=\"card\">
+          <div class=\"label\">Last run</div>
+          <div class=\"value\">${entry.timestamp || 'n/a'}</div>
+          <div class=\"muted\">Dry run: ${entry.dry_run ? 'true' : 'false'}</div>
+        </div>
+        <div class=\"cards\">${cards}</div>
+      `;
 
       if (entry.results && entry.results.length) {
-        resultsTable.style.display = '';
+        resultsTable.classList.remove('hidden');
         for (const row of entry.results) {
           const tr = document.createElement('tr');
-          const details = row.details ? JSON.stringify(row.details) : '';
-          tr.innerHTML = `<td>${row.domain || ''}</td><td>${row.action || ''}</td><td><pre>${details}</pre></td>`;
+          const details = row.details ? JSON.stringify(row.details, null, 2) : '';
+          const badge = actionBadge(row.action || '');
+          tr.innerHTML = `<td>${row.domain || ''}</td><td>${badge}</td><td><pre>${details}</pre></td>`;
           tbody.appendChild(tr);
         }
       } else {
-        resultsTable.style.display = 'none';
+        resultsTable.classList.add('hidden');
       }
+    }
+
+    function actionBadge(action) {
+      const map = {
+        'would-create': 'b-create',
+        'created': 'b-create',
+        'would-update': 'b-update',
+        'updated': 'b-update',
+        'would-delete': 'b-delete',
+        'deleted': 'b-delete',
+        'unchanged': 'b-unchanged',
+        'skipped-disabled': 'b-skip'
+      };
+      const cls = map[action] || 'b-unchanged';
+      return `<span class=\"badge ${cls}\">${action}</span>`;
+    }
+
+    function renderHistoryList() {
+      const list = document.getElementById('history-list');
+      list.innerHTML = '';
+      if (!cachedHistory.length) {
+        list.innerHTML = '<div class=\"muted\">No history yet.</div>';
+        return;
+      }
+      cachedHistory.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'history-item' + (idx === 0 ? ' active' : '');
+        div.onclick = () => selectHistory(idx);
+        const summary = Object.entries(item.summary || {}).map(([k, v]) => `${k}: ${v}`).join(' | ');
+        div.innerHTML = `<div><strong>${item.timestamp || 'n/a'}</strong></div><div class=\"muted\">Dry run: ${item.dry_run ? 'true' : 'false'}</div><div class=\"muted\">${summary}</div>`;
+        list.appendChild(div);
+      });
+      selectHistory(0);
+    }
+
+    function selectHistory(index) {
+      const list = document.getElementById('history-list');
+      Array.from(list.children).forEach((el, i) => {
+        el.classList.toggle('active', i === index);
+      });
+      const entry = cachedHistory[index];
+      const detail = document.getElementById('history-detail');
+      if (!entry) {
+        detail.innerHTML = '<div class=\"muted\">Select a run.</div>';
+        return;
+      }
+      const summary = Object.entries(entry.summary || {}).map(([k, v]) => `${k}: ${v}`).join(' | ');
+      detail.innerHTML = `
+        <div class=\"card\">
+          <div class=\"label\">Run</div>
+          <div class=\"value\">${entry.timestamp || 'n/a'}</div>
+          <div class=\"muted\">Dry run: ${entry.dry_run ? 'true' : 'false'}</div>
+          <div class=\"muted\">${summary}</div>
+        </div>
+        <div style=\"margin-top: 12px;\">
+          <table>
+            <thead><tr><th>Domain</th><th>Action</th><th>Details</th></tr></thead>
+            <tbody>
+              ${(entry.results || []).map(row => {
+                const details = row.details ? JSON.stringify(row.details, null, 2) : '';
+                return `<tr><td>${row.domain || ''}</td><td>${actionBadge(row.action || '')}</td><td><pre>${details}</pre></td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === name);
+      });
+      document.getElementById('tab-runs').classList.toggle('hidden', name !== 'runs');
+      document.getElementById('tab-history').classList.toggle('hidden', name !== 'history');
     }
 
     async function runSync(dryRun) {
@@ -221,6 +375,8 @@ def index():
         return;
       }
       const data = await res.json();
+      cachedHistory = [data, ...cachedHistory];
+      renderHistoryList();
       render(data);
     }
 
