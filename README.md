@@ -14,7 +14,7 @@ Why use it:
 
 ## Web UI
 
-The built-in web UI lets you trigger Dry Run / Apply and review results with clear action badges and a history view.
+The built-in web UI lets you trigger Dry Run / Apply and review results with a clean table, filters, and a history view.
 
 ![npm-sync UI preview](docs/ui-demo.gif)
 
@@ -103,6 +103,23 @@ Optional fields:
 - `block_common_exploits`, `websocket_support`, `caching_enabled`
 - `http2_support`, `hsts_enabled`, `force_ssl`
 - `advanced_config`, `description`, `enabled`
+
+Certificate examples:
+
+```yaml
+# Use a specific certificate by name
+- domain: app.example.com
+  forward_host: app
+  forward_port: 8080
+  certificate_strategy: custom
+  certificate_name: "app.example.com"
+
+# Disable certificate / SSL
+- domain: internal.example.com
+  forward_host: internal
+  forward_port: 8080
+  certificate_strategy: none
+```
 
 ## How to use
 

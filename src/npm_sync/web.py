@@ -154,16 +154,16 @@ def index():
   <title>npm-sync</title>
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #151922;
-      --panel-2: #1c2230;
+      --bg: #0e1116;
+      --panel: #141a25;
+      --panel-2: #1a2231;
       --text: #e6e9ef;
       --muted: #aab2c0;
-      --accent: #4bb3fd;
-      --green: #43d19e;
-      --yellow: #f6c344;
-      --red: #ff6b6b;
-      --blue: #4bb3fd;
+      --accent: #6ad6a7;
+      --green: #6ad6a7;
+      --yellow: #f2c14e;
+      --red: #ff7b7b;
+      --blue: #63a5ff;
       --border: #2a3245;
     }
     * { box-sizing: border-box; }
@@ -172,11 +172,11 @@ def index():
     h1 { margin: 0; font-size: 22px; }
     .muted { color: var(--muted); }
     .wrap { padding: 24px 28px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab { padding: 10px 14px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; border-radius: 8px; }
-    .tab.active { background: var(--panel-2); border-color: var(--accent); }
-    .actions { display: flex; gap: 10px; margin: 12px 0 18px; }
-    button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; color: #0b0d12; font-weight: 600; }
+    .tabs { display: inline-flex; gap: 6px; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--border); padding: 4px; border-radius: 999px; }
+    .tab { padding: 8px 14px; border: none; background: transparent; color: var(--muted); cursor: pointer; border-radius: 999px; font-weight: 600; }
+    .tab.active { background: var(--panel-2); color: var(--text); }
+    .actions { display: flex; gap: 10px; margin: 8px 0 16px; }
+    button { padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer; color: #0b0d12; font-weight: 700; }
     .btn-dry { background: var(--yellow); }
     .btn-apply { background: var(--green); }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
@@ -187,7 +187,7 @@ def index():
     th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
     th { background: var(--panel-2); font-weight: 600; }
     tr:hover td { background: #1a2030; }
-    .badge { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; }
     .b-create { background: rgba(67, 209, 158, 0.2); color: var(--green); }
     .b-update { background: rgba(75, 179, 253, 0.2); color: var(--blue); }
     .b-delete { background: rgba(255, 107, 107, 0.2); color: var(--red); }
@@ -222,25 +222,19 @@ def index():
       <div id=\"summary\"></div>
 
       <div style=\"margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;\">
-        <input id=\"search\" placeholder=\"Search domain\" style=\"padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);\" />
-        <select id=\"sort\" style=\"padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);\">
-          <option value=\"domain\">Sort: Domain</option>
-          <option value=\"action\">Sort: Action</option>
+        <input id=\"search\" placeholder=\"Search domain\" style=\"min-width:220px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);\" />
+        <select id=\"action-filter\" style=\"padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);\">
+          <option value=\"all\">Action: All</option>
+          <option value=\"changes\">Action: Changes only</option>
+          <option value=\"would-create\">would-create</option>
+          <option value=\"would-update\">would-update</option>
+          <option value=\"would-delete\">would-delete</option>
+          <option value=\"created\">created</option>
+          <option value=\"updated\">updated</option>
+          <option value=\"deleted\">deleted</option>
+          <option value=\"unchanged\">unchanged</option>
+          <option value=\"skipped-disabled\">skipped-disabled</option>
         </select>
-        <label class=\"muted\" style=\"display:flex;align-items:center;gap:6px;\">
-          <input id=\"changes-only\" type=\"checkbox\" /> Show changes only
-        </label>
-      </div>
-
-      <div id=\"filters\" style=\"margin-top: 10px; display:flex; gap:6px; flex-wrap: wrap;\">
-        <button class=\"tab active\" data-filter=\"would-create\" onclick=\"toggleFilter('would-create')\">would-create</button>
-        <button class=\"tab active\" data-filter=\"would-update\" onclick=\"toggleFilter('would-update')\">would-update</button>
-        <button class=\"tab active\" data-filter=\"would-delete\" onclick=\"toggleFilter('would-delete')\">would-delete</button>
-        <button class=\"tab active\" data-filter=\"created\" onclick=\"toggleFilter('created')\">created</button>
-        <button class=\"tab active\" data-filter=\"updated\" onclick=\"toggleFilter('updated')\">updated</button>
-        <button class=\"tab active\" data-filter=\"deleted\" onclick=\"toggleFilter('deleted')\">deleted</button>
-        <button class=\"tab active\" data-filter=\"unchanged\" onclick=\"toggleFilter('unchanged')\">unchanged</button>
-        <button class=\"tab active\" data-filter=\"skipped-disabled\" onclick=\"toggleFilter('skipped-disabled')\">skipped-disabled</button>
       </div>
 
       <table id=\"results\" class=\"hidden\">
@@ -271,7 +265,6 @@ def index():
   <script>
     let cachedHistory = [];
     let currentEntry = null;
-    const activeFilters = new Set(['would-create','would-update','would-delete','created','updated','deleted','unchanged','skipped-disabled']);
 
     async function fetchHistory() {
       const res = await fetch('/api/history');
@@ -316,21 +309,20 @@ def index():
       }
 
       const search = document.getElementById('search').value.toLowerCase();
-      const sort = document.getElementById('sort').value;
-      const changesOnly = document.getElementById('changes-only').checked;
+      const actionFilter = document.getElementById('action-filter').value;
 
       let rows = currentEntry.results.filter(row => {
         const action = row.action || '';
-        if (!activeFilters.has(action)) return false;
         if (search && !(row.domain || '').toLowerCase().includes(search)) return false;
-        if (changesOnly && (!row.details || Object.keys(row.details).length === 0)) return false;
+        if (actionFilter === 'changes') {
+          if (!row.details || Object.keys(row.details).length === 0) return false;
+        } else if (actionFilter !== 'all' && action !== actionFilter) {
+          return false;
+        }
         return true;
       });
 
-      rows.sort((a, b) => {
-        if (sort === 'action') return (a.action || '').localeCompare(b.action || '');
-        return (a.domain || '').localeCompare(b.domain || '');
-      });
+      rows.sort((a, b) => (a.domain || '').localeCompare(b.domain || ''));
 
       if (rows.length) {
         resultsTable.classList.remove('hidden');
@@ -434,18 +426,6 @@ def index():
       document.getElementById('tab-history').classList.toggle('hidden', name !== 'history');
     }
 
-    function toggleFilter(action) {
-      if (activeFilters.has(action)) {
-        activeFilters.delete(action);
-      } else {
-        activeFilters.add(action);
-      }
-      document.querySelectorAll(`[data-filter=\"${action}\"]`).forEach(btn => {
-        btn.classList.toggle('active', activeFilters.has(action));
-      });
-      renderResults();
-    }
-
     async function runSync(dryRun) {
       const res = await fetch('/api/run', {
         method: 'POST',
@@ -463,8 +443,7 @@ def index():
     }
 
     document.getElementById('search').addEventListener('input', renderResults);
-    document.getElementById('sort').addEventListener('change', renderResults);
-    document.getElementById('changes-only').addEventListener('change', renderResults);
+    document.getElementById('action-filter').addEventListener('change', renderResults);
 
     fetchHistory();
   </script>

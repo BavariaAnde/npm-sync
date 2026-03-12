@@ -7,6 +7,8 @@
 - Added web UI with run history and action overview
 - Added history persistence via Docker volume
 - Improved UI styling and readability
+- Simplified UI controls and filtering
+- Added per-host certificate selection (non-wildcard)
 
 ## 0.1.0 - 2026-03-11
 

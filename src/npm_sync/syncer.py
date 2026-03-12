@@ -40,7 +40,9 @@ class Syncer:
         cert_name = host.get("certificate_name", self.defaults.get("certificate_name", self.settings.default_cert_name))
 
         certificate_id = 0
-        if cert_strategy == "wildcard":
+        if cert_strategy == "none":
+            certificate_id = 0
+        elif cert_name:
             found = self._get_certificate_id(cert_name)
             if found:
                 certificate_id = found
@@ -198,12 +200,11 @@ class Syncer:
         if "certificate_strategy" in host or "certificate_name" in host:
             cert_strategy = host.get("certificate_strategy")
             cert_name = host.get("certificate_name")
-            if cert_strategy == "wildcard" or (cert_strategy is None and cert_name):
-                if cert_name:
-                    found = self._get_certificate_id(cert_name)
-                    payload["certificate_id"] = found or 0
-            elif cert_strategy:
+            if cert_strategy == "none":
                 payload["certificate_id"] = 0
+            elif cert_name:
+                found = self._get_certificate_id(cert_name)
+                payload["certificate_id"] = found or 0
 
         return payload
 
