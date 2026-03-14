@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-03-14
+
+- Add file-based advanced_config profiles loaded from the hosts.yml directory
+- Keep raw advanced_config snippets supported with validation for missing profiles
+- Block profile usage on auth.andreas-goettl.de to prevent auth loops
+- Add tests for profile resolution, raw snippets, and validation errors
+
 ## 0.1.1 - 2026-03-12
 
 - Added minimal CI workflow

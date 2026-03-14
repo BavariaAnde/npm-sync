@@ -11,7 +11,7 @@ from flask import Flask, Response, jsonify, request
 
 from npm_sync.config import Settings
 from npm_sync.npm_client import NPMClient
-from npm_sync.syncer import Syncer, load_yaml
+from npm_sync.syncer import Syncer, load_inventory, InventoryValidationError
 
 app = Flask(__name__)
 RUN_LOCK = threading.Lock()
@@ -115,8 +115,15 @@ def _run_sync(dry_run: bool, config_path: str) -> dict[str, Any]:
         secret=Settings.npm_secret,
     )
     client.authenticate()
-    inventory = load_yaml(config_path)
-    syncer = Syncer(client, Settings, inventory)
+    inventory = load_inventory(config_path)
+    try:
+        syncer = Syncer(client, Settings, inventory)
+    except InventoryValidationError as exc:
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "dry_run": dry_run,
+            "error": str(exc),
+        }
     results = syncer.sync()
     payload = [result.__dict__ for result in results]
     summary = _build_summary(payload)

@@ -106,6 +106,21 @@ Optional fields:
 - `http2_support`, `hsts_enabled`, `force_ssl`
 - `advanced_config`, `description`, `enabled`
 
+Advanced config can be a full Nginx snippet or a reusable profile file stored next to `hosts.yml`:
+
+```yaml
+hosts:
+  - domain: app.example.com
+    forward_host: app
+    forward_port: 8080
+    advanced_config: authelia_proxy  # loads ./authelia_proxy or ./authelia_proxy.conf
+
+  - domain: ws.example.com
+    forward_host: ws-app
+    forward_port: 8080
+    advanced_config: authelia_proxy_ws  # loads ./authelia_proxy_ws or ./authelia_proxy_ws.conf
+```
+
 Certificate examples:
 
 ```yaml

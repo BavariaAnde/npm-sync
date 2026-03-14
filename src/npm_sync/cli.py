@@ -6,7 +6,7 @@ from pathlib import Path
 from npm_sync import __version__
 from npm_sync.config import Settings
 from npm_sync.npm_client import NPMClient
-from npm_sync.syncer import Syncer, load_yaml
+from npm_sync.syncer import Syncer, load_inventory, InventoryValidationError
 
 
 def main():
@@ -49,8 +49,11 @@ def main():
     )
     client.authenticate()
 
-    inventory = load_yaml(str(config_path))
-    syncer = Syncer(client, Settings, inventory)
+    inventory = load_inventory(str(config_path))
+    try:
+        syncer = Syncer(client, Settings, inventory)
+    except InventoryValidationError as exc:
+        raise SystemExit(str(exc)) from None
     results = syncer.sync()
 
     print(json.dumps([result.__dict__ for result in results], indent=2))

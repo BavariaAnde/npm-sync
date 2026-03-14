@@ -1,8 +1,115 @@
 from __future__ import annotations
 
 import logging
+import re
+from pathlib import Path
 import yaml
 from npm_sync.models import SyncResult
+
+AUTH_PORTAL_DOMAIN = "auth.andreas-goettl.de"
+
+_PROFILE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+class InventoryValidationError(ValueError):
+    pass
+
+
+def _looks_like_profile(value: str) -> bool:
+    if not value:
+        return False
+    if any(char in value for char in ("\n", ";", "{", "}")):
+        return False
+    if " " in value or "\t" in value:
+        return False
+    return bool(_PROFILE_NAME_RE.match(value))
+
+
+def _resolve_base_dir(base_dir) -> Path | None:
+    if base_dir is None:
+        return None
+    if isinstance(base_dir, Path):
+        return base_dir
+    try:
+        return Path(str(base_dir))
+    except (TypeError, ValueError):
+        return None
+
+
+def _load_profile_file(name: str, base_dir: Path) -> str:
+    candidates = (name, f"{name}.conf")
+    for candidate in candidates:
+        path = base_dir / candidate
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    raise InventoryValidationError(
+        f"advanced_config profile '{name}' not found in {base_dir}. "
+        f"Provide '{name}' or '{name}.conf' in the same directory as hosts.yml."
+    )
+
+
+def resolve_advanced_config(value, domain: str, base_dir: Path | None) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise InventoryValidationError("advanced_config must be a string")
+
+    stripped = value.strip()
+    if not stripped:
+        return ""
+
+    if _looks_like_profile(stripped):
+        if domain.strip().lower() == AUTH_PORTAL_DOMAIN:
+            raise InventoryValidationError(
+                f"advanced_config profile '{stripped}' is not allowed for {AUTH_PORTAL_DOMAIN} "
+                "because it would create an auth loop."
+            )
+        if base_dir is None:
+            raise InventoryValidationError(
+                f"advanced_config profile '{stripped}' requires hosts.yml on disk so the file can be loaded."
+            )
+        return _load_profile_file(stripped, base_dir)
+
+    return value
+
+
+def validate_inventory(inventory: dict, base_dir: Path | None = None) -> dict:
+    if inventory is None:
+        inventory = {}
+    if not isinstance(inventory, dict):
+        raise InventoryValidationError("Inventory must be a mapping")
+
+    resolved_base_dir = _resolve_base_dir(base_dir) or _resolve_base_dir(inventory.get("_base_dir"))
+
+    hosts = inventory.get("hosts") or []
+    if not isinstance(hosts, list):
+        raise InventoryValidationError("Inventory 'hosts' must be a list")
+
+    validated_hosts: list[dict] = []
+    for index, host in enumerate(hosts):
+        if not isinstance(host, dict):
+            raise InventoryValidationError(f"hosts[{index}] must be a mapping")
+        host_copy = dict(host)
+        domain = str(host_copy.get("domain", "") or "")
+        try:
+            resolved = resolve_advanced_config(host_copy.get("advanced_config"), domain, resolved_base_dir)
+        except InventoryValidationError as exc:
+            raise InventoryValidationError(f"hosts[{index}] {exc}") from None
+        host_copy["advanced_config"] = resolved
+        validated_hosts.append(host_copy)
+
+    inventory = dict(inventory)
+    inventory["hosts"] = validated_hosts
+    return inventory
+
+
+def load_inventory(path: str) -> dict:
+    base_dir = Path(path).resolve().parent
+    inventory = load_yaml(path)
+    if not isinstance(inventory, dict):
+        raise InventoryValidationError("Inventory must be a mapping")
+    inventory["_base_dir"] = str(base_dir)
+    return validate_inventory(inventory, base_dir)
 
 def load_yaml(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as handle:
@@ -12,8 +119,8 @@ class Syncer:
     def __init__(self, client, settings, inventory: dict):
         self.client = client
         self.settings = settings
-        self.inventory = inventory
-        self.defaults = inventory.get("defaults", {})
+        self.inventory = validate_inventory(inventory)
+        self.defaults = self.inventory.get("defaults", {})
         self._cert_cache: dict[str, int] = {}
 
     def _get_access_list_id(self, name: str) -> int:
